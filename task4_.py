@@ -1,4 +1,4 @@
-import biosppy.signals.ecg as ecg
+import biosppy.signals.eeg as eeg
 import numpy as np
 import pandas as pd
 
@@ -29,49 +29,27 @@ def read_from_file(X_train_file, X_predict_file,  y_train_file = None, is_testin
     return x_train, x_predict, y_train
 
 
-def feature_extraction(X, is_test = False):
-    # get all the templates for one person, take the median value, get one template for each person
+
+def feature_extraction_eeg(eeg1, eeg2, is_testset = False):
     # remove nan value in nparray
     X_new = []
     count = 0
-    for row in X:
-        # print(count)
-        row = row[np.logical_not(np.isnan(row))]
-        count += 1
+    for sig_mat in zip(eeg1, eeg2):
+        # read signal pairs in the matrix
+        elem1 = sig_mat[0]
+        elem2 = sig_mat[1]
+        x_sample = np.concatenate((elem1, elem2), axis=0)
+        x_sample = np.transpose(x_sample)
 
-        # extract all heartbeats templates
-        signal_processed = ecg.ecg(signal=row, sampling_rate=300, show=False)
-        templates = signal_processed[4]
-        # take the median of templates along row dimension
-        template_median = np.median(templates, axis=0)
-        template_mean = np.mean(templates, axis = 0)
-        # take the minimum R peaks
-        rpeaks_location = signal_processed[2]
-        rpeaks_location = ecg.correct_rpeaks(signal = row, rpeaks = rpeaks_location, sampling_rate=300)
-        rpeaks_location = np.asarray(rpeaks_location).ravel()
+        # feature construction
+        signal_processed = eeg.eeg(signal=x_sample, sampling_rate=128, show=True)
+        theta = signal_processed[3]
+        alow = signal_processed[4]
+        ahigh = signal_processed[5]
+        beta = signal_processed[6]
+        gamma = signal_processed[7]
 
-        rpeaks = row[rpeaks_location]
-        rpeaks_min = min(rpeaks)
-        rpeaks_max = max(rpeaks)
-        rpeaks_mean = np.mean(rpeaks)
-        rpeaks_var = np.var(rpeaks)
-
-        rr_interval = np.diff(rpeaks_location)
-        # print("rr_interval: ", rr_interval)
-        rr_var = np.var(rr_interval)
-        rr_min = np.min(rr_interval)
-        rr_max = np.max(rr_interval)
-        # add hrv into the feature
-        hrv_data = list(hr.nonlinear.poincare(rpeaks=rpeaks_location, show=False)[1:])
-        hrv_data = hrv_data + list(hr.time_domain.nni_parameters(rpeaks=rpeaks_location))
-        hrv_data = hrv_data + list(hr.time_domain.nni_differences_parameters(rpeaks=rpeaks_location))
-        hrv_data = hrv_data + list(hr.time_domain.hr_parameters(rpeaks=rpeaks_location))
-        hrv_data = hrv_data + [hr.time_domain.sdnn(rpeaks=rpeaks_location)[0]]
-        features = np.append(template_mean, [rpeaks_min, rpeaks_max, rpeaks_mean, rpeaks_var, rr_min, rr_max, rr_var])
-        # features = np.append(features,  hrv_data)
-        features = np.concatenate((features, hrv_data), axis = 0).ravel()
-        # print(features)
-        # add the new point into  all datapoints
+        features = np.concatenate((theta, alow, ahigh, beta, gamma), axix = 0).ravel() # put it into one dimension array
         X_new.append(features)
     X_new = np.array(X_new)
     print(X_new.shape)
@@ -163,17 +141,21 @@ if __name__ == '__main__':
         test_eeg2 = eeg2s[1]
         test_emg = emgs[1]
 
-        # feature extraction for x_train and x_test
-        x_train_temMed = feature_extraction(x_train_raw)
-        x_test_temMed =  feature_extraction(x_test_raw, True)
+        # feature extraction
+        train_features_eeg = feature_extraction_eeg(train_eeg1, train_eeg2)
+        test_features_eeg =  feature_extraction_eeg(test_eeg1, test_eeg2)
+
+        train_features = []
+        test_features = []
 
         # standarlization
-        x_std = standarlization(x_train_temMed, x_test_temMed)
+        x_std = standarlization(train_features, test_features)
         x_train_std = x_std[0]
         x_test_std = x_std[1]
+
         # write processed data to csv
         processed_to_csv(x_train_std)
-        processed_to_csv(x_test_std,flag = 'test')
+        processed_to_csv(x_test_std, flag = 'test')
 
     if not is_start:
         x_train_std =  pd.read_csv('X_train_temMed.csv', delimiter=' ', index_col=False, header = None).to_numpy()
