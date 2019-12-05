@@ -9,6 +9,7 @@ from sklearn.metrics import balanced_accuracy_score, make_scorer
 from sklearn.metrics import f1_score
 from sklearn.ensemble import AdaBoostClassifier
 from sklearn.tree import DecisionTreeClassifier
+import biosppy.signals.tools as bt
 
 from sklearn.model_selection import GridSearchCV
 from sklearn.externals import joblib
@@ -19,41 +20,50 @@ def read_from_file(X_train_file, X_predict_file,  y_train_file = None, is_testin
     y_train = []
     if is_testing:
         # read from files
-        x_train = pd.read_csv(X_train_file, index_col='id', nrows = 30).to_numpy()
-        x_predict = pd.read_csv(X_predict_file, nrows = 30).to_numpy()
+        x_train = pd.read_csv(X_train_file, index_col='Id', nrows = 10).to_numpy()
+        x_predict = pd.read_csv(X_predict_file, index_col='Id', nrows = 10).to_numpy()
     else:
-        x_train = pd.read_csv(X_train_file, index_col='id').to_numpy()
-        y_train = pd.read_csv(y_train_file, index_col='id').to_numpy()
+        x_train = pd.read_csv(X_train_file, index_col='Id').to_numpy()
+        x_predict = pd.read_csv(X_predict_file, index_col='Id').to_numpy()
         if y_train_file:
-            x_predict = pd.read_csv(X_predict_file).to_numpy()
+            y_train = pd.read_csv(y_train_file, index_col='Id').to_numpy()
     return x_train, x_predict, y_train
 
 
-
-def feature_extraction_eeg(eeg1, eeg2, is_testset = False):
+def feature_extraction(eeg1, eeg2, emg):
     # remove nan value in nparray
-    X_new = []
+    x_new = []
     count = 0
-    for sig_mat in zip(eeg1, eeg2):
+    for sig_mat in zip(eeg1, eeg2, emg):
         # read signal pairs in the matrix
-        elem1 = sig_mat[0]
-        elem2 = sig_mat[1]
-        x_sample = np.concatenate((elem1, elem2), axis=0)
-        x_sample = np.transpose(x_sample)
+        elem1 = sig_mat[0].reshape(1, -1)
+        elem2 = sig_mat[1].reshape(1, -1)
+        emg = sig_mat[2]
 
-        # feature construction
-        signal_processed = eeg.eeg(signal=x_sample, sampling_rate=128, show=True)
+        eegs = np.concatenate((elem1, elem2), axis=0)
+        eegs = np.transpose(eegs)
+
+        # eeg feature construction
+        signal_processed = eeg.eeg(signal=eegs, sampling_rate=128, show=False)
         theta = signal_processed[3]
         alow = signal_processed[4]
         ahigh = signal_processed[5]
         beta = signal_processed[6]
         gamma = signal_processed[7]
 
-        features = np.concatenate((theta, alow, ahigh, beta, gamma), axix = 0).ravel() # put it into one dimension array
-        X_new.append(features)
-    X_new = np.array(X_new)
-    print(X_new.shape)
-    return X_new
+        sig_trans_eeg1 = bt.analytic_signal(elem1)
+        sig_trans_eeg2 = bt.analytic_signal(elem2)
+
+        # emg feature construction
+        sig_trans_emg = bt.analytic_signal(emg)
+
+        features = np.concatenate((theta, alow, ahigh, beta, gamma), axis = 0).ravel() # put it into one dimension array
+        features = np.append(features, [sig_trans_eeg1[0].ravel(), sig_trans_eeg1[1].ravel(),
+                                   sig_trans_eeg2[0].ravel(), sig_trans_eeg2[1].ravel(), sig_trans_emg[0].ravel(), sig_trans_emg[1].ravel()])
+        x_new.append(features)
+    x_new = np.array(x_new)
+    print("features", x_new.shape)
+    return x_new
 
 
 def processed_to_csv(X_train, flag = 'train'):
@@ -83,7 +93,7 @@ def standarlization(train_x, test_x):
 
 def svmClassifier(train_x, train_y, test_x):
     train_y = train_y.ravel()
-    classifier = SVC(class_weight='balanced', gamma=0.005, C=20)  # c the penalty term for misclassification
+    classifier = SVC(class_weight='balanced', gamma=0.001, C=10)  # c the penalty term for misclassification
     # make balanced_accuracy_scorer
     score_func = make_scorer(f1_score, average='micro') # additional param for f1_score
     # cross validation
@@ -127,10 +137,10 @@ if __name__ == '__main__':
     is_testing = False
     # read data from files
     if is_start:
-        # read eeg1
-        eeg1s = read_from_file("train_eeg1.csv", "test_eeg1.csv", "train_labels.csv")
-        eeg2s = read_from_file("train_eeg2.csv", "test_eeg.csv")
-        emgs  = read_from_file("train_emg.csv", "test_emg.csv")
+        # read
+        eeg1s = read_from_file("train_eeg1.csv", "test_eeg1.csv", "train_labels.csv", is_testing)
+        eeg2s = read_from_file("train_eeg2.csv", "test_eeg2.csv", is_testing = is_testing)
+        emgs  = read_from_file("train_emg.csv", "test_emg.csv", is_testing = is_testing)
 
         # get different files
         train_eeg1 = eeg1s[0]
@@ -142,11 +152,8 @@ if __name__ == '__main__':
         test_emg = emgs[1]
 
         # feature extraction
-        train_features_eeg = feature_extraction_eeg(train_eeg1, train_eeg2)
-        test_features_eeg =  feature_extraction_eeg(test_eeg1, test_eeg2)
-
-        train_features = []
-        test_features = []
+        train_features = feature_extraction(train_eeg1, train_eeg2, train_emg)
+        test_features =  feature_extraction(test_eeg1, test_eeg2, test_emg)
 
         # standarlization
         x_std = standarlization(train_features, test_features)
@@ -160,7 +167,7 @@ if __name__ == '__main__':
     if not is_start:
         x_train_std =  pd.read_csv('X_train_temMed.csv', delimiter=' ', index_col=False, header = None).to_numpy()
         x_test_std = pd.read_csv('X_test_temMed.csv', delimiter=' ', index_col=False, header=None).to_numpy()
-        y_train = pd.read_csv('y_train.csv', index_col='id').to_numpy()
+        y_train = pd.read_csv("train_labels.csv", index_col='id').to_numpy()
         # print(x_train_std[[10, 14, 17, 18]][:, -2:])
     # prediction
     # y_predict = grid_search(x_train_std, y_train, x_test_std)
