@@ -195,8 +195,8 @@ if __name__ == '__main__':
     y_train = pd.read_csv(copa + "train_labels.csv", index_col='Id').to_numpy()
     if is_testing:
         y_train = pd.read_csv(copa + "train_labels.csv", index_col='Id', nrows=10).to_numpy()
-    # y_predict = grid_search(x_train_std, y_train, x_test_std)
-    y_predict = svmClassifier(x_train_std, y_train, x_test_std)
+    y_predict = grid_search(x_train_std, y_train, x_test_std)
+    # y_predict = svmClassifier(x_train_std, y_train, x_test_std)
     # neural net
     # y_predict = neurNet_classifier(x_train_std, y_train, x_test_std)
     # Adaboost classifier
