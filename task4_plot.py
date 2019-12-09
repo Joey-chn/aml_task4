@@ -32,20 +32,27 @@ def show_components(emg_sig, y):
         count += 1
 
 
-def read_from_file(eeg1, eeg2, emg, y, rows = 50):
+def read_from_file(eeg1, eeg2, emg, y, rows = None):
     # read from files
-    x_train_emg = pd.read_csv(emg, index_col='Id', nrows = rows).to_numpy()
-    x_train_eeg1 = pd.read_csv(eeg1, index_col='Id', nrows = rows).to_numpy()
-    x_train_eeg2 = pd.read_csv(eeg2, index_col='Id', nrows = rows).to_numpy()
-    y_train = pd.read_csv(y, index_col='Id', nrows = rows).to_numpy()
-    return x_train_eeg1, x_train_eeg2, x_train_emg, y_train
+    if rows == None :
+        x_train_emg = pd.read_csv(emg, index_col='Id').to_numpy()
+        #x_train_eeg1 = pd.read_csv(eeg1, index_col='Id').to_numpy()
+        #x_train_eeg2 = pd.read_csv(eeg2, index_col='Id').to_numpy()
+        #y_train = pd.read_csv(y, index_col='Id').to_numpy()
+    else :
+        x_train_emg = pd.read_csv(emg, index_col='Id', nrows = rows).to_numpy()
+        x_train_eeg1 = pd.read_csv(eeg1, index_col='Id', nrows = rows).to_numpy()
+        x_train_eeg2 = pd.read_csv(eeg2, index_col='Id', nrows = rows).to_numpy()
+        y_train = pd.read_csv(y, index_col='Id', nrows = rows).to_numpy()
+    #return x_train_eeg1, x_train_eeg2, x_train_emg, y_train
+    return x_train_emg
 
 
 if __name__ == '__main__':
     train_part = read_from_file("train_eeg1.csv", "train_eeg2.csv", "train_emg.csv", "train_labels.csv")
-    eeg1 = train_part[0]
-    eeg2 = train_part[1]
+    i = 500
+    plt.plot(np.arange(0,train_part[i].size), train_part[i])
+    
+    plt.show()
 
-    show_components(train_part[2], train_part[3]) 
-
-    test_eeg(eeg1, eeg2)
+    #test_eeg(eeg1, eeg2)
