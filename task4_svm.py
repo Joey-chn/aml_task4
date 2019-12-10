@@ -6,7 +6,7 @@ from sklearn.preprocessing import StandardScaler
 from sklearn.svm import SVC
 from sklearn.model_selection import cross_val_score
 from sklearn.metrics import make_scorer
-from sklearn.metrics import f1_score
+from sklearn.metrics import balanced_accuracy_score
 from sklearn.ensemble import AdaBoostClassifier
 from sklearn.tree import DecisionTreeClassifier
 import biosppy.signals.tools as bt
@@ -108,10 +108,14 @@ def standarlization(train_x, test_x):
 
 
 def svmClassifier(train_x, train_y, test_x):
-    train_y = train_y.ravel()
-    classifier = SVC(class_weight='balanced', gamma=0.001, C=10)  # c the penalty term for misclassification
+    xy = np.concatenate((train_x, train_y), axis = 1)
+    xy_shuffle = np.random.shuffle(xy)
+    train_x = xy[:, :-1]
+    train_y = xy[:, -1].ravel()
+
+    classifier = SVC(class_weight='balanced', gamma=0.01, C=25)  # c the penalty term for misclassification
     # make balanced_accuracy_scorer
-    score_func = make_scorer(f1_score, average='micro')  # additional param for f1_score
+    score_func = make_scorer(balanced_accuracy_score)  # additional param for f1_score
     # cross validation
     scores = cross_val_score(classifier, train_x, train_y, cv=5, scoring=score_func)
     print(scores)
@@ -122,9 +126,10 @@ def svmClassifier(train_x, train_y, test_x):
 
 
 def grid_search(train_x, train_y, test_x):
+    train_y = train_y.ravel()
     parameters = {'C': [10, 20, 25, 30], 'gamma': [0.001, 0.005, 0.01]}
     svcClassifier = SVC(kernel='rbf', class_weight='balanced')
-    score_func = make_scorer(f1_score, average='micro')
+    score_func = make_scorer(balanced_accuracy_score)
     gs = GridSearchCV(svcClassifier, parameters, cv=5, scoring=score_func)
     gs.fit(train_x, train_y)
     print(gs.cv_results_)
@@ -139,7 +144,7 @@ def adaBoostClassifier(train_x, train_y, test_x):
     classifier = AdaBoostClassifier(base_estimator=DecisionTreeClassifier(max_depth=None), n_estimators=60,
                                     learning_rate=0.8)
     # make balanced_accuracy_scorer
-    score_func = make_scorer(f1_score, average='micro')  # additional param for f1_score
+    score_func = make_scorer(balanced_accuracy_score)  # additional param for f1_score
     # cross validation
     scores = cross_val_score(classifier, train_x, train_y, cv=5, scoring=score_func)
     print(scores)
