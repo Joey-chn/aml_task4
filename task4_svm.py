@@ -15,7 +15,7 @@ import biosppy.signals.tools as bt
 from sklearn.model_selection import GridSearchCV
 
 
-def read_from_file(X_train_file, X_predict_file, is_testing=False,test_rows = 60):
+def read_from_file(X_train_file, X_predict_file, is_testing=False, test_rows = 60):
     if is_testing:
         # read from files
         x_train = pd.read_csv(X_train_file, index_col='Id', nrows=test_rows).to_numpy()
@@ -91,10 +91,10 @@ def processed_to_csv(X_train, flag='train', catogery = 'all_'):
     print("wrote")
 
 
-def result_to_csv(predict_y, sample_file, num_rows = 43200):
+def result_to_csv(predict_y, sample_file):
     # write the result to the CSV file
     predict_y = np.array(predict_y)
-    sample_file = pd.read_csv(sample_file, nrows=num_rows)
+    sample_file = pd.read_csv(sample_file)
     id = sample_file['Id'].to_numpy().reshape(-1, 1)
     result = np.concatenate((id, predict_y.reshape(-1, 1)), axis=1)
     result = pd.DataFrame(result, columns=['Id', 'y'])
@@ -159,8 +159,8 @@ def adaBoostClassifier(train_x, train_y, test_x):
 
 if __name__ == '__main__':
     is_start = True
-    is_testing = True
-    is_colab = False
+    is_testing = False
+    is_colab = True
     test_rows = 1200
     copa = ''
     if is_colab:
@@ -200,7 +200,7 @@ if __name__ == '__main__':
         processed_to_csv(x_train_std)
         processed_to_csv(x_test_std, flag='test')
 
-        #===== data based on different dataset =======
+        #===== data based on different subjects =======
         # train data
         size_all = y_train.shape[0]
         idx = 0
@@ -266,5 +266,5 @@ if __name__ == '__main__':
             votes[j - 1] += 1
         prediction_final.append(np.argmax(votes))
 
-    result_to_csv(prediction_final, copa + 'sample.csv', test_rows)
+    result_to_csv(prediction_final, copa + 'sample.csv')
 
