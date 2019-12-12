@@ -91,10 +91,13 @@ def processed_to_csv(X_train, flag='train', catogery = 'all_'):
     print("wrote")
 
 
-def result_to_csv(predict_y, sample_file):
+def result_to_csv(predict_y, sample_file, is_testing = False, nrows = 1200):
     # write the result to the CSV file
     predict_y = np.array(predict_y)
-    sample_file = pd.read_csv(sample_file)
+    if is_testing:
+        sample_file = pd.read_csv(sample_file, nrows= nrows)
+    else:
+        sample_file = pd.read_csv(sample_file)
     id = sample_file['Id'].to_numpy().reshape(-1, 1)
     result = np.concatenate((id, predict_y.reshape(-1, 1)), axis=1)
     result = pd.DataFrame(result, columns=['Id', 'y'])
@@ -112,7 +115,7 @@ def standarlization(train_x, test_x):
 def svmClassifier(train_x, train_y, test_x, g, c):
     xy = np.concatenate((train_x, train_y), axis = 1)
     print(test_x.shape)
-    # xy_shuffle = np.random.shuffle(xy)
+    np.random.shuffle(xy)
     train_x = xy[:, :-1]
     train_y = xy[:, -1].ravel()
 
@@ -159,8 +162,8 @@ def adaBoostClassifier(train_x, train_y, test_x):
 
 if __name__ == '__main__':
     is_start = True
-    is_testing = False
-    is_colab = True
+    is_testing = True
+    is_colab = False
     test_rows = 1200
     copa = ''
     if is_colab:
@@ -227,13 +230,9 @@ if __name__ == '__main__':
         # test data
         test_all = np.concatenate((test_eeg1, test_eeg2, test_emg), axis = 1)
         processed_to_csv(test_all, catogery='sub_', flag = 'test')
-
-
-
-
-
-    x_train_std = pd.read_csv(copa + 'all_X_train_temMed.csv', delimiter=' ', index_col=False, header=None, nrows= test_rows).to_numpy()
-    x_test_std = pd.read_csv(copa + 'all_X_test_temMed.csv', delimiter=' ', index_col=False, header=None, nrows = test_rows).to_numpy()
+    if not is_start:
+        x_train_std = pd.read_csv(copa + 'all_X_train_temMed.csv', delimiter=' ', index_col=False, header=None).to_numpy()
+        x_test_std = pd.read_csv(copa + 'all_X_test_temMed.csv', delimiter=' ', index_col=False, header=None).to_numpy()
 
     # prediction
     predictions = {}
@@ -260,11 +259,12 @@ if __name__ == '__main__':
     # ======= do voting from four predictions============
     votes = np.array([0, 0, 0])
     prediction_final = []
-    for i in range(len(predictions[0])):
-        for j in range(4):
-            y = predictions[j][i]
-            votes[j - 1] += 1
-        prediction_final.append(np.argmax(votes))
+    for y_num in range(len(predictions[0])):
+        for meth_num in range(4):
+            y = int(predictions[meth_num][y_num]) # y is the class label, starts from 1
+            print("y{}".format(y))
+            votes[y - 1] += 1
+        prediction_final.append(np.argmax(votes) + 1)
 
-    result_to_csv(prediction_final, copa + 'sample.csv')
+    result_to_csv(prediction_final, copa + 'sample.csv', is_testing, test_rows)
 
